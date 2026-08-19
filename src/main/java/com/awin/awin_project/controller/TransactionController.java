@@ -29,4 +29,11 @@ public class TransactionController {
 
         return TransactionResponse.from(transaction);
     }
+
+    @PatchMapping("/{id}/approve")
+    public TransactionResponse approve(@PathVariable Long id) {
+        var transaction = transactionService.approve(id);
+
+        return TransactionResponse.from(transaction);
+    }
 }

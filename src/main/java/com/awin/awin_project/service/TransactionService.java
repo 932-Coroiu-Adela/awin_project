@@ -1,6 +1,7 @@
 package com.awin.awin_project.service;
 
 import com.awin.awin_project.domain.Transaction;
+import com.awin.awin_project.exception.TransactionNotFoundException;
 import com.awin.awin_project.repository.TransactionRepository;
 
 import org.springframework.stereotype.Service;
@@ -21,5 +22,13 @@ public class TransactionService {
     public Transaction create(BigDecimal saleAmount, BigDecimal commissionAmount) {
         Transaction transaction = Transaction.create(saleAmount, commissionAmount);
         return transactionRepository.save(transaction);
+    }
+
+    public Transaction approve(Long id) {
+        Transaction transaction = transactionRepository.findById(id).orElseThrow(() -> new TransactionNotFoundException(id));
+
+        transaction.approve();
+
+        return transaction;
     }
 }
