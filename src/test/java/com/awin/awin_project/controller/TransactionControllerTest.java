@@ -4,6 +4,8 @@ import com.awin.awin_project.domain.Transaction;
 import com.awin.awin_project.domain.TransactionStatus;
 import com.awin.awin_project.repository.TransactionRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -58,6 +60,87 @@ public class TransactionControllerTest {
     }
 
     @Test
+    void shouldRejectTransactionWithoutSaleAmount() throws Exception {
+        mockMvc.perform(post("/transactions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                        """
+                            {                
+                               "commissionAmount": 10.00
+                            }    
+                        """
+                ))
+                .andExpect(status().isBadRequest());
+
+        assertThat(transactionRepository.findAll()).hasSize(0);
+    }
+
+    @Test
+    void shouldRejectTransactionWithoutCommissionAmount() throws Exception {
+        mockMvc.perform(post("/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                """
+                                    {                
+                                       "saleAmount": 10.00
+                                    }    
+                                """
+                        ))
+                .andExpect(status().isBadRequest());
+
+        assertThat(transactionRepository.findAll()).hasSize(0);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-0.01", "-100"})
+    void shouldRejectNonPositiveSaleAmount(String saleAmount)
+            throws Exception {
+        mockMvc.perform(post("/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "saleAmount": %s,
+                              "commissionAmount": 10.00
+                            }
+                            """.formatted(saleAmount)))
+                .andExpect(status().isBadRequest());
+
+        assertThat(transactionRepository.count()).isZero();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-0.01", "-100"})
+    void shouldRejectNonPositiveCommissionAmount(String saleAmount)
+            throws Exception {
+        mockMvc.perform(post("/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                            {
+                              "saleAmount": 10.00,
+                              "commissionAmount": %s
+                            }
+                            """.formatted(saleAmount)))
+                .andExpect(status().isBadRequest());
+
+        assertThat(transactionRepository.count()).isZero();
+    }
+
+    @Test
+    void shouldRejectTransactionWithoutSaleAmountAndCommissionAmount() throws Exception {
+        mockMvc.perform(post("/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                                """
+                                    {                           
+                                    }    
+                                """
+                        ))
+                .andExpect(status().isBadRequest());
+
+        assertThat(transactionRepository.findAll()).hasSize(0);
+    }
+
+    @Test
     void shouldApprovePendingTransaction() throws Exception {
         var transaction = transactionRepository.saveAndFlush(
                 Transaction.create(
@@ -73,6 +156,28 @@ public class TransactionControllerTest {
                 .andExpect(jsonPath("$.status").value("APPROVED"))
                 .andExpect(jsonPath("$.saleAmount").value(160.00))
                 .andExpect(jsonPath("$.commissionAmount").value(20.00));
+
+        var updatedTransaction = transactionRepository.findById(transaction.getId()).orElseThrow();
+
+        assertThat(updatedTransaction.getStatus()).isEqualTo(TransactionStatus.APPROVED);
+    }
+
+    @Test
+    void shouldNotDeclineApprovedTransaction()  throws Exception {
+        var transaction = transactionRepository.saveAndFlush(
+                Transaction.create(
+                        new BigDecimal("160.00"),
+                        new BigDecimal("20.00")
+                )
+        );
+
+        mockMvc.perform(patch("/transactions/{id}/approve", transaction.getId())
+                )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/transactions/{id}/decline", transaction.getId())
+                )
+                .andExpect(status().isConflict());
 
         var updatedTransaction = transactionRepository.findById(transaction.getId()).orElseThrow();
 
@@ -113,5 +218,27 @@ public class TransactionControllerTest {
             throws Exception {
         mockMvc.perform(patch("/transactions/{id}/decline", 999))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shouldNotApproveDeclinedTransaction()  throws Exception {
+        var transaction = transactionRepository.saveAndFlush(
+                Transaction.create(
+                        new BigDecimal("160.00"),
+                        new BigDecimal("20.00")
+                )
+        );
+
+        mockMvc.perform(patch("/transactions/{id}/decline", transaction.getId())
+                )
+                .andExpect(status().isOk());
+
+        mockMvc.perform(patch("/transactions/{id}/approve", transaction.getId())
+                )
+                .andExpect(status().isConflict());
+
+        var updatedTransaction = transactionRepository.findById(transaction.getId()).orElseThrow();
+
+        assertThat(updatedTransaction.getStatus()).isEqualTo(TransactionStatus.DECLINED);
     }
 }
