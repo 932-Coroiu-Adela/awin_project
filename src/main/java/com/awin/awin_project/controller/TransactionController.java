@@ -36,4 +36,11 @@ public class TransactionController {
 
         return TransactionResponse.from(transaction);
     }
+
+    @PatchMapping("/{id}/decline")
+    public TransactionResponse decline(@PathVariable Long id) {
+        var transaction = transactionService.decline(id);
+
+        return TransactionResponse.from(transaction);
+    }
 }

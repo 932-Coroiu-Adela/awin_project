@@ -31,4 +31,12 @@ public class TransactionService {
 
         return transaction;
     }
+
+    public Transaction decline(Long id) {
+        Transaction transaction = transactionRepository.findById(id).orElseThrow(() -> new TransactionNotFoundException(id));
+
+        transaction.decline();
+
+        return transaction;
+    }
 }

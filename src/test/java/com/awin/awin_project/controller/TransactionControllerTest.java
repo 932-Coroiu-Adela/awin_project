@@ -85,4 +85,33 @@ public class TransactionControllerTest {
         mockMvc.perform(patch("/transactions/{id}/approve", 999))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void shouldDeclinePendingTransaction() throws Exception {
+        var transaction = transactionRepository.saveAndFlush(
+                Transaction.create(
+                        new BigDecimal("160.00"),
+                        new BigDecimal("20.00")
+                )
+        );
+
+        mockMvc.perform(patch("/transactions/{id}/decline", transaction.getId())
+                )
+                .andExpect(status().isOk())
+                .andExpect(MockMvcResultMatchers.jsonPath("$.id").isNumber())
+                .andExpect(jsonPath("$.status").value("DECLINED"))
+                .andExpect(jsonPath("$.saleAmount").value(160.00))
+                .andExpect(jsonPath("$.commissionAmount").value(20.00));
+
+        var updatedTransaction = transactionRepository.findById(transaction.getId()).orElseThrow();
+
+        assertThat(updatedTransaction.getStatus()).isEqualTo(TransactionStatus.DECLINED);
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenDecliningUnknownTransaction()
+            throws Exception {
+        mockMvc.perform(patch("/transactions/{id}/decline", 999))
+                .andExpect(status().isNotFound());
+    }
 }
