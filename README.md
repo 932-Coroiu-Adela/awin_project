@@ -34,7 +34,7 @@ curl.exe -i -X PATCH http://localhost:8080/transactions/1/approve
 Request to decline the transaction which was previously created (should create another transaction, as we are allowed to change its status only once):
 curl.exe -i -X PATCH http://localhost:8080/transactions/2/decline
 
-AI usage:
+## AI usage:
 AI was used to:
 1. Discuss the initial project structure and dependency selection.
 2. Clarify Spring MVC, JPA, validation, and testing concepts.
